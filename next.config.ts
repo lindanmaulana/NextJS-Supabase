@@ -15,6 +15,12 @@ const nextConfig: NextConfig = {
         hostname: 'jogjavoice.com',
         port: '',
         pathname: "/**"
+      },
+      {
+        protocol: "https",
+        hostname: "images.unsplash.com",
+        port: "",
+        pathname: "/**"
       }
     ]
   }

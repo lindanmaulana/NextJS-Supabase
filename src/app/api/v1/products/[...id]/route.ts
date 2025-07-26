@@ -6,10 +6,11 @@ interface ProductParams {
     id: string
 }
 
-export const PATCH = async (req: NextRequest, params: {params: ProductParams}) => {
+
+export const GET = async (req: NextRequest, params: {params: ProductParams}) => {
     try {
-        const reqBody = await req.json()
-        const result = await ProductServices.update(reqBody, params.params)
+        const {id} = await params.params
+        const result = await ProductServices.getOne({id})
 
         return NextResponse.json(result)
     } catch (err) {
@@ -21,10 +22,27 @@ export const PATCH = async (req: NextRequest, params: {params: ProductParams}) =
     }
 }
 
-export const DELETE = async (params: {params: ProductParams}) => {
-    console.log({params: params})
+
+export const PATCH = async (req: NextRequest, params: {params: ProductParams}) => {
     try {
-        const result = await ProductServices.delete(params.params)
+        const reqParams = await params.params
+        const reqBody = await req.json()
+        const result = await ProductServices.update(reqBody, reqParams)
+
+        return NextResponse.json(result)
+    } catch (err) {
+        const errorMessage = handleApiError(err)
+
+        return NextResponse.json({
+            error: errorMessage
+        })
+    }
+}
+
+export const DELETE = async (req: NextRequest, params: {params: ProductParams}) => {
+    try {
+        const {id} = await params.params
+        const result = await ProductServices.delete({id})
 
         return NextResponse.json(result)
     } catch (err) {

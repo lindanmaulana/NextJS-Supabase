@@ -8,21 +8,26 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
-import supabase from "@/lib/db";
+import { handleApiError } from "@/lib/helpers/ApiError";
 import { IMenu } from "@/types/menu";
 import { Ellipsis } from "lucide-react";
 import Image from "next/image";
+import { usePathname, useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 const AdminPage = () => {
     const [menus, setMenus] = useState<IMenu[] | []>([]);
+    const [product, setProduct] = useState<IMenu>()
     const [createDialog, setCreateDialog] = useState<boolean>(false)
     const [selectedMenu, setSelectedMenu] = useState<{menu: IMenu, action: "edit" | "delete"} | null>(null)
+    const urlParams = new URLSearchParams(window.location.search)
+    const router = useRouter()
+    const pathname = usePathname()
 
     const fetchMenu = async () => {
         try {
-            const response = await fetch("/api/v1/products", {
+            const response = await fetch(`/api/v1/products?${urlParams.toString()}`, {
                 method: "GET"
             })
 
@@ -38,6 +43,24 @@ const AdminPage = () => {
             if(err instanceof Error) {
                 errorMessage = err.message
             }
+
+            toast(errorMessage)
+        }
+    }
+
+    const fetchOneProduct = async (id: number) => {
+        try {
+            const response = await fetch(`/api/v1/products/${id}`, {
+                method: "GET"
+            })
+
+            const result = await response.json()
+
+            if(result.error) throw new Error(result.error)
+
+            setProduct(result.data)
+        } catch (err) {
+            const errorMessage = handleApiError(err)
 
             toast(errorMessage)
         }
@@ -84,6 +107,37 @@ const AdminPage = () => {
         }
     }
 
+    const handleUpdateMenu = async (e: FormEvent<HTMLFormElement>) => {
+        e.preventDefault()
+        if(!selectedMenu?.menu.id) {
+            toast("product not found")
+            return;
+        }
+
+        const formData = new FormData(e.currentTarget)
+        const data = Object.fromEntries(formData)
+
+        try {
+            const response = await fetch(`/api/v1/products/${selectedMenu.menu.id}`, {
+                method: "PATCH",
+                body: JSON.stringify(data)
+            })
+            
+            const result = await response.json()
+            
+            if(result.error) throw new Error(result.error)
+
+            toast("Berhasil mengubah data produk")
+
+            setSelectedMenu(null)
+            fetchMenu()
+        } catch (err) {
+            const errorMessage = handleApiError(err)
+
+            toast(errorMessage)
+        }
+    }
+
     const handleDeleteMenu = async (id?: number) => {
         if(!id) return;
 
@@ -103,6 +157,19 @@ const AdminPage = () => {
         } catch (err) {
             console.log(err)
         }
+    }
+
+    const handleFilterLimit = (value: string) => {
+        switch(value) {
+            case "":
+                urlParams.set("limit", "5")
+            break
+            default:
+                urlParams.set("limit", value)
+        }
+
+        fetchMenu()
+        router.replace(`${pathname}?${urlParams.toString()}`)
     }
     
     return (
@@ -165,7 +232,7 @@ const AdminPage = () => {
                 </Dialog>
             </div>
 
-            <div>
+            <div className="space-y-4">
                 <Table>
                     <TableHeader>
                         <TableRow>
@@ -194,7 +261,10 @@ const AdminPage = () => {
                                                 <DropdownMenuLabel className="font-bold">Action</DropdownMenuLabel>
                                                 <DropdownMenuSeparator />
                                                 <DropdownMenuGroup>
-                                                    <DropdownMenuItem>Update</DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => {
+                                                        setSelectedMenu({menu, action: "edit"})
+                                                        fetchOneProduct(menu.id)
+                                                    }}>Update</DropdownMenuItem>
                                                     <DropdownMenuItem onClick={() => setSelectedMenu({menu, action: "delete"})} className="text-red-400">Delete</DropdownMenuItem>
                                                 </DropdownMenuGroup>
                                             </DropdownMenuContent>
@@ -204,6 +274,21 @@ const AdminPage = () => {
                             ))}
                     </TableBody>
                 </Table>
+
+                <div>
+                    <Select onValueChange={(value) => handleFilterLimit(value)} defaultValue={urlParams.get("limit") ? urlParams.get("limit")?.toString() : "5"}>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Limit" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectGroup>
+                                <SelectItem value="5">5</SelectItem>
+                                <SelectItem value="15">15</SelectItem>
+                                <SelectItem value="20">20</SelectItem>
+                            </SelectGroup>
+                        </SelectContent>
+                    </Select>
+                </div>
             </div>
 
                 <Dialog open={selectedMenu !== null && selectedMenu.action === "delete"} onOpenChange={(open) => {
@@ -217,11 +302,63 @@ const AdminPage = () => {
                             </DialogHeader>
 
                         <DialogFooter>
-                            <DialogClose>
+                            <DialogClose asChild>
                                 <Button variant={'secondary'} className="cursor-pointer">Cancel</Button>
                             </DialogClose>
                             <Button onClick={() => handleDeleteMenu(selectedMenu?.menu.id)} variant={"destructive"} className="cursor-pointer">Delete</Button>
                         </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+
+                <Dialog open={selectedMenu !== null && selectedMenu.action === "edit"} onOpenChange={(open) => !open && setSelectedMenu(null)}>
+                    <DialogContent key={product?.id} className="sm:max-w-md">
+                        <form onSubmit={handleUpdateMenu} className="space-y-4">
+                            <DialogHeader>
+                                <DialogTitle>Update Menu</DialogTitle>
+                                <DialogDescription>Update a menu by insert data in this form</DialogDescription>
+                            </DialogHeader>
+
+                            <div className="w-full grid gap-4">
+                                <div className="w-full grid gap-1.5">
+                                    <Label htmlFor="name">Name</Label>
+                                    <Input type="text" id="name" name="name" placeholder="Insert name" defaultValue={product?.name} required />
+                                </div>
+                                <div className="w-full grid gap-1.5">
+                                    <Label htmlFor="category">Category</Label>
+                                    <Select name="category" defaultValue={product?.category}>
+                                        <SelectTrigger className="w-full">
+                                            <SelectValue placeholder="Select Category" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectGroup>
+                                                <SelectLabel>Category</SelectLabel>
+                                                <SelectItem value="coffe">Coffee</SelectItem>
+                                                <SelectItem value="noncoffe">Non Coffee</SelectItem>
+                                                <SelectItem value="food">Food</SelectItem>
+                                            </SelectGroup>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="w-full grid gap-1.5">
+                                    <Label htmlFor="price">Price</Label>
+                                    <Input type="number" id="price" name="price" placeholder="Insert price" defaultValue={product?.price} required />
+                                </div>
+                                <div className="w-full grid gap-1.5">
+                                    <Label htmlFor="image">Image</Label>
+                                    <Textarea id="image" name="image" placeholder="Insert name" defaultValue={product?.image} required></Textarea>
+                                </div>
+                                <div className="w-full grid gap-1.5">
+                                    <Label htmlFor="description">Description</Label>
+                                    <Textarea id="description" name="description" placeholder="Insert name" className="resize-none" defaultValue={product?.description} required></Textarea>
+                                </div>
+                            </div>
+                        <DialogFooter>
+                            <DialogClose asChild>
+                                <Button variant={'secondary'} className="cursor-pointer">Cancel</Button>
+                            </DialogClose>
+                            <Button type="submit" className="cursor-pointer">Create</Button>
+                        </DialogFooter>
+                        </form>
                     </DialogContent>
                 </Dialog>
         </div>  

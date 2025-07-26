@@ -2,9 +2,9 @@ import { ProductCreateRequest } from "@/lib/models/Product";
 import { ProductServices } from "@/lib/services/ProductServices";
 import { NextRequest, NextResponse } from "next/server";
 
-export const GET = async () => {
+export const GET = async (req: NextRequest) => {
     try {
-        const response = await ProductServices.getAll();
+        const response = await ProductServices.getAll(req);
         
         return NextResponse.json(response);
     } catch (err) {

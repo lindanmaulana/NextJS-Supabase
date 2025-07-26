@@ -1,6 +1,7 @@
 import supabase from "@/lib/db";
 import { ProductCreateRequest, ProductUpdateRequest } from "@/lib/models/Product";
 import { ParamsRequest } from "../models/supabase";
+import { NextRequest } from "next/server";
 
 export class ProductServices {
     static TableName = "products"
@@ -13,8 +14,25 @@ export class ProductServices {
         return result
     }
 
-    static async getAll() {
-        const result = await supabase.from(this.TableName).select("*");
+    static async getAll(req: NextRequest) {
+        const query = supabase.from(this.TableName).select("*");
+
+        
+        if(req) {
+            const url = new URL(req.url)
+            console.log({url})
+            const limitParam = url.searchParams.get("limit")
+
+            if(limitParam) {
+                let limit = Number(limitParam)
+
+                if(limit > 20) limit = 5
+
+                query.limit(limit)
+            }
+        }
+
+        const result = await query
 
         if (result.error) {
             throw new Error(`Gagal mengambil data produk dari Supabase: ${result.error.message}`);
@@ -25,6 +43,16 @@ export class ProductServices {
         }
 
         return result;
+    }
+    
+    static async getOne(params: ParamsRequest) {
+        await this.checkProduct(params.id)
+
+        const result = await supabase.from(this.TableName).select("*").eq("id", params.id).single()
+
+        if(result.error) throw new Error(`Gagal mengambil data produk ${result.error}`)
+
+        return result
     }
 
     static async update(req: ProductUpdateRequest, params: ParamsRequest) {
@@ -37,7 +65,6 @@ export class ProductServices {
     }
 
     static async delete(params: ParamsRequest) {
-        console.log({params})
         await this.checkProduct(params.id)
 
         const result = await supabase.from(this.TableName).delete().eq("id", params.id)
