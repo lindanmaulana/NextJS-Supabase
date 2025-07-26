@@ -13,8 +13,9 @@ import { IMenu } from "@/types/menu";
 import { Ellipsis } from "lucide-react";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { FormEvent, useEffect, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { useDebouncedCallback } from "use-debounce";
 
 const AdminPage = () => {
     const [menus, setMenus] = useState<IMenu[] | []>([]);
@@ -65,6 +66,20 @@ const AdminPage = () => {
             toast(errorMessage)
         }
     }
+
+    
+    const handleDebounceSearch = useDebouncedCallback((value: string) => {
+        switch(value) {
+            case "":
+                urlParams.delete("keyword")
+            break
+            default:
+                urlParams.set("keyword", value)
+        }
+
+        fetchMenu()
+        router.replace(`${pathname}?${urlParams.toString()}`)
+    }, 1000)
 
     useEffect(() => {
         const loadDataProducts = async () => {
@@ -171,65 +186,74 @@ const AdminPage = () => {
         fetchMenu()
         router.replace(`${pathname}?${urlParams.toString()}`)
     }
+
+    const handleFilterSearch = (e: ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value
+
+        handleDebounceSearch(value)
+    }
     
     return (
         <div className="container max-w-6xl mx-auto py-8">
             <div className="mb-4 w-full flex items-center justify-between">
                 <div className="text-3xl font-bold">Menu</div>
-                <Dialog open={createDialog} onOpenChange={setCreateDialog}>
-                    <DialogTrigger asChild>
-                        <Button className="font-bold">Add Menu</Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-md">
-                        <form onSubmit={handleAddMenu} className="space-y-4">
-                            <DialogHeader>
-                                <DialogTitle>Add Menu</DialogTitle>
-                                <DialogDescription>Create a new menu by insert data in this form</DialogDescription>
-                            </DialogHeader>
+                <div className="flex items-center gap-4">
+                    <Input onChange={handleFilterSearch} placeholder="Search..." />
+                    <Dialog open={createDialog} onOpenChange={setCreateDialog}>
+                        <DialogTrigger asChild>
+                            <Button className="font-bold">Add Menu</Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-md">
+                            <form onSubmit={handleAddMenu} className="space-y-4">
+                                <DialogHeader>
+                                    <DialogTitle>Add Menu</DialogTitle>
+                                    <DialogDescription>Create a new menu by insert data in this form</DialogDescription>
+                                </DialogHeader>
 
-                            <div className="w-full grid gap-4">
-                                <div className="w-full grid gap-1.5">
-                                    <Label htmlFor="name">Name</Label>
-                                    <Input type="text" id="name" name="name" placeholder="Insert name" required />
+                                <div className="w-full grid gap-4">
+                                    <div className="w-full grid gap-1.5">
+                                        <Label htmlFor="name">Name</Label>
+                                        <Input type="text" id="name" name="name" placeholder="Insert name" required />
+                                    </div>
+                                    <div className="w-full grid gap-1.5">
+                                        <Label htmlFor="category">Category</Label>
+                                        <Select name="category">
+                                            <SelectTrigger className="w-full">
+                                                <SelectValue placeholder="Select Category" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectGroup>
+                                                    <SelectLabel>Category</SelectLabel>
+                                                    <SelectItem value="coffe">Coffee</SelectItem>
+                                                    <SelectItem value="noncoffe">Non Coffee</SelectItem>
+                                                    <SelectItem value="food">Food</SelectItem>
+                                                </SelectGroup>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="w-full grid gap-1.5">
+                                        <Label htmlFor="price">Price</Label>
+                                        <Input type="number" id="price" name="price" placeholder="Insert price" required />
+                                    </div>
+                                    <div className="w-full grid gap-1.5">
+                                        <Label htmlFor="image">Image</Label>
+                                        <Textarea id="image" name="image" placeholder="Insert name" required></Textarea>
+                                    </div>
+                                    <div className="w-full grid gap-1.5">
+                                        <Label htmlFor="description">Description</Label>
+                                        <Textarea id="description" name="description" placeholder="Insert name" className="resize-none" required></Textarea>
+                                    </div>
                                 </div>
-                                <div className="w-full grid gap-1.5">
-                                    <Label htmlFor="category">Category</Label>
-                                    <Select name="category">
-                                        <SelectTrigger className="w-full">
-                                            <SelectValue placeholder="Select Category" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectGroup>
-                                                <SelectLabel>Category</SelectLabel>
-                                                <SelectItem value="coffe">Coffee</SelectItem>
-                                                <SelectItem value="noncoffe">Non Coffee</SelectItem>
-                                                <SelectItem value="food">Food</SelectItem>
-                                            </SelectGroup>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="w-full grid gap-1.5">
-                                    <Label htmlFor="price">Price</Label>
-                                    <Input type="number" id="price" name="price" placeholder="Insert price" required />
-                                </div>
-                                <div className="w-full grid gap-1.5">
-                                    <Label htmlFor="image">Image</Label>
-                                    <Textarea id="image" name="image" placeholder="Insert name" required></Textarea>
-                                </div>
-                                <div className="w-full grid gap-1.5">
-                                    <Label htmlFor="description">Description</Label>
-                                    <Textarea id="description" name="description" placeholder="Insert name" className="resize-none" required></Textarea>
-                                </div>
-                            </div>
-                        <DialogFooter>
-                            <DialogClose asChild>
-                                <Button variant={'secondary'} className="cursor-pointer">Cancel</Button>
-                            </DialogClose>
-                            <Button type="submit" className="cursor-pointer">Create</Button>
-                        </DialogFooter>
-                        </form>
-                    </DialogContent>
-                </Dialog>
+                            <DialogFooter>
+                                <DialogClose asChild>
+                                    <Button variant={'secondary'} className="cursor-pointer">Cancel</Button>
+                                </DialogClose>
+                                <Button type="submit" className="cursor-pointer">Create</Button>
+                            </DialogFooter>
+                            </form>
+                        </DialogContent>
+                    </Dialog>
+                </div>
             </div>
 
             <div className="space-y-4">

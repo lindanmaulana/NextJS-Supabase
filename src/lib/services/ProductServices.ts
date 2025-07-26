@@ -16,12 +16,12 @@ export class ProductServices {
 
     static async getAll(req: NextRequest) {
         const query = supabase.from(this.TableName).select("*");
-
         
         if(req) {
             const url = new URL(req.url)
-            console.log({url})
+
             const limitParam = url.searchParams.get("limit")
+            const keywordParam = url.searchParams.get("keyword")
 
             if(limitParam) {
                 let limit = Number(limitParam)
@@ -30,6 +30,8 @@ export class ProductServices {
 
                 query.limit(limit)
             }
+
+            if(keywordParam) query.ilike("name", `%${keywordParam}%`)
         }
 
         const result = await query
