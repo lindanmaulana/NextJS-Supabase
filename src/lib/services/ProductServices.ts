@@ -2,12 +2,20 @@ import supabase from "@/lib/db";
 import { ProductCreateRequest, ProductUpdateRequest } from "@/lib/models/Product";
 import { ParamsRequest } from "../models/supabase";
 import { NextRequest } from "next/server";
+import { ImageServices } from "./ImageServices";
 
 export class ProductServices {
     static TableName = "products"
 
     static async create(req: ProductCreateRequest) {
-        const result = await supabase.from(this.TableName).insert(req).select()
+        const uploadImage = await ImageServices.upload({filePath: "products", image: req.image })
+
+        const data = {
+            ...req,
+            image: uploadImage.publicUrl
+        }
+
+        const result = await supabase.from(this.TableName).insert(data).select()
 
         if(result.error) throw new Error(`Gagal menambahkan data product, ${result.error.message}`)
 
