@@ -3,11 +3,13 @@ import { ProductServices } from "@/lib/services/ProductServices"
 import { NextRequest, NextResponse } from "next/server"
 
 interface ProductParams {
-    id: string
+    params: {
+        id: string
+    }
 }
 
 
-export const GET = async (req: NextRequest, params: {params: ProductParams}) => {
+export const GET = async (req: NextRequest, params: ProductParams) => {
     try {
         const {id} = await params.params
         const result = await ProductServices.getOne({id})
@@ -23,7 +25,7 @@ export const GET = async (req: NextRequest, params: {params: ProductParams}) => 
 }
 
 
-export const PATCH = async (req: NextRequest, params: {params: ProductParams}) => {
+export const PATCH = async (req: NextRequest, params: ProductParams) => {
     try {
         const reqParams = await params.params
         const reqBody = await req.json()
@@ -39,7 +41,7 @@ export const PATCH = async (req: NextRequest, params: {params: ProductParams}) =
     }
 }
 
-export const DELETE = async (req: NextRequest, params: {params: ProductParams}) => {
+export const DELETE = async (req: NextRequest, params: ProductParams) => {
     try {
         const {id} = await params.params
         const result = await ProductServices.delete({id})

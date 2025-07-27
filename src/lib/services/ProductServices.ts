@@ -15,27 +15,59 @@ export class ProductServices {
     }
 
     static async getAll(req: NextRequest) {
-        const query = supabase.from(this.TableName).select("*");
+        const query = supabase.from(this.TableName).select("*", {count: "exact"}).limit(5);
+
+        const MAXIMUM_LIMIT: number = 20
+        const DEFAULT_LIMIT: number = 5
+        const DEFAULT_PAGE: number = 1
+
+        let limit: number = DEFAULT_LIMIT
+        let page: number = DEFAULT_PAGE
+        let totalPage: number = 1;
+        let nextPage: number | null = null
+        let prevPage: number | null = null
+        let links: number[] = [1]
+
         
         if(req) {
             const url = new URL(req.url)
 
             const limitParam = url.searchParams.get("limit")
             const keywordParam = url.searchParams.get("keyword")
+            const pageParam = url.searchParams.get("page")
 
             if(limitParam) {
-                let limit = Number(limitParam)
+                const parsedLimit = Number(limitParam)
 
-                if(limit > 20) limit = 5
-
-                query.limit(limit)
+                if(parsedLimit > MAXIMUM_LIMIT) {
+                    limit = DEFAULT_LIMIT
+                } else {
+                    limit = parsedLimit
+                }
             }
 
-            if(keywordParam) query.ilike("name", `%${keywordParam}%`)
+            if(pageParam) {
+                const parsedPage = Number(pageParam)
+
+                if(parsedPage < DEFAULT_PAGE) {
+                    page = DEFAULT_PAGE
+                } else {
+                    page = parsedPage
+                }
+            }
+
+            if(keywordParam) query.ilike("name", `%${keywordParam}%`);
+
+
+            const start = (page - 1) * limit 
+            const end = start + limit - 1
+
+            query.range(start, end)
         }
 
         const result = await query
 
+        
         if (result.error) {
             throw new Error(`Gagal mengambil data produk dari Supabase: ${result.error.message}`);
         }
@@ -44,7 +76,26 @@ export class ProductServices {
             throw new Error("Data produk tidak ditemukan atau kosong.");
         }
 
-        return result;
+        if(result.count) {
+            totalPage = Math.ceil(result.count / limit)
+            nextPage= page > 0 && page < totalPage ? page + 1 : null
+            prevPage= page > 1 ? page - 1 : null
+            links = Array.from({length: totalPage}, (_, index) => index + 1);
+        }
+
+        const response = {
+            ...result,
+            pagination: {
+                totalPage,
+                currentPage: page,
+                limit,
+                links,
+                nextPage,
+                prevPage
+            }
+        }
+
+        return response;
     }
     
     static async getOne(params: ParamsRequest) {

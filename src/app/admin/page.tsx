@@ -5,11 +5,13 @@ import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, Di
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { handleApiError } from "@/lib/helpers/ApiError";
 import { IMenu } from "@/types/menu";
+import { IPagination } from "@/types/pagination";
 import { Ellipsis } from "lucide-react";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
@@ -19,14 +21,18 @@ import { useDebouncedCallback } from "use-debounce";
 
 const AdminPage = () => {
     const [menus, setMenus] = useState<IMenu[] | []>([]);
+    const [pagination, setPagination] = useState<IPagination>({currentPage: 1, limit: 5, links: [1, 2], nextPage: 2, prevPage: 1, totalPage: 2})
     const [product, setProduct] = useState<IMenu>()
     const [createDialog, setCreateDialog] = useState<boolean>(false)
     const [selectedMenu, setSelectedMenu] = useState<{menu: IMenu, action: "edit" | "delete"} | null>(null)
+    const [loading, setLoading] = useState<boolean>(false)
+
     const urlParams = new URLSearchParams(window.location.search)
     const router = useRouter()
     const pathname = usePathname()
 
     const fetchMenu = async () => {
+        setLoading(true)
         try {
             const response = await fetch(`/api/v1/products?${urlParams.toString()}`, {
                 method: "GET"
@@ -34,10 +40,12 @@ const AdminPage = () => {
 
             const result = await response.json()
 
-            if(!result.data) throw new Error(result.error)
+            if(result.error) throw new Error(result.error)
 
+            setLoading(false)
             setMenus(result.data)
-            return result.data
+            setPagination(result.pagination)
+            return result
         } catch (err) {
             let errorMessage = "An unexpected error occurred!"
 
@@ -83,15 +91,16 @@ const AdminPage = () => {
 
     useEffect(() => {
         const loadDataProducts = async () => {
-            const data = await fetchMenu()
+            const result = await fetchMenu()
 
-            setMenus(data)
+            setMenus(result.data)
+            setPagination(result.pagination)
         }
 
         loadDataProducts()
     }, []);
 
-    if (menus.length < 1) return <p>Loading...</p>;
+    if(loading) return <p>Loading...</p>
 
     const handleAddMenu = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault()
@@ -192,13 +201,29 @@ const AdminPage = () => {
 
         handleDebounceSearch(value)
     }
+
+    const handlePagination = (page?: string | null) => {
+        switch(page) {
+            case null:
+                return;
+            case undefined:
+                return;
+            default:
+                urlParams.set("page", page)
+                fetchMenu()
+        }
+
+        router.replace(`${pathname}?${urlParams.toString()}`)
+    }
+
+    console.log({pagination})
     
     return (
         <div className="container max-w-6xl mx-auto py-8">
             <div className="mb-4 w-full flex items-center justify-between">
                 <div className="text-3xl font-bold">Menu</div>
                 <div className="flex items-center gap-4">
-                    <Input onChange={handleFilterSearch} placeholder="Search..." />
+                    <Input onChange={handleFilterSearch} placeholder="Search..." defaultValue={urlParams.get("keyword")?.toString() ?? ""} />
                     <Dialog open={createDialog} onOpenChange={setCreateDialog}>
                         <DialogTrigger asChild>
                             <Button className="font-bold">Add Menu</Button>
@@ -268,7 +293,7 @@ const AdminPage = () => {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                            {menus.map(menu => (
+                            {menus.length > 0 ? menus.map(menu => (
                                 <TableRow key={menu.id}>
                                     <TableCell className="flex items-center gap-3">
                                         <Image src={menu.image} alt={menu.name} width={50} height={50} className="aspect-square object-cover rounded-lg" /> {menu.name}
@@ -295,7 +320,13 @@ const AdminPage = () => {
                                         </DropdownMenu>
                                     </TableCell>
                                 </TableRow>
-                            ))}
+                            )): (
+                                <TableRow>
+                                    <TableCell colSpan={4} className="text-center">
+                                        <p className="p-4">Data Produk tidak tersedia!</p>
+                                    </TableCell>
+                                </TableRow>
+                            )}
                     </TableBody>
                 </Table>
 
@@ -312,6 +343,24 @@ const AdminPage = () => {
                             </SelectGroup>
                         </SelectContent>
                     </Select>
+                    <Pagination>
+                        <PaginationContent>
+                            <PaginationItem>
+                                <PaginationPrevious onClick={() => handlePagination(pagination.prevPage?.toString())} className={`${!pagination.prevPage && "pointer-events-none opacity-50 cursor-not-allowed"}`} />
+                            </PaginationItem>
+                            {pagination.links?.map(page => {
+                                const isActive: boolean = page === pagination.currentPage
+                                return (
+                                    <PaginationItem key={page}>
+                                        <PaginationLink onClick={() => handlePagination(page.toString())} isActive={isActive} className={`${isActive ? "pointer-events-none opacity-50 cursor-not-allowed" : ""}`}>{page}</PaginationLink>
+                                    </PaginationItem>
+                                )
+                            })}
+                            <PaginationItem>
+                                <PaginationNext onClick={() => handlePagination(pagination.nextPage?.toString())} className={`${!pagination.nextPage && "pointer-events-none opacity-50 cursor-not-allowed"}`} />
+                            </PaginationItem>
+                        </PaginationContent>
+                    </Pagination>
                 </div>
             </div>
 
