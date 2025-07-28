@@ -5,7 +5,6 @@ const AdminPage = async () => {
 
     return (
         <div>
-            hello guts <br />
             <Product/>
         </div>
     )

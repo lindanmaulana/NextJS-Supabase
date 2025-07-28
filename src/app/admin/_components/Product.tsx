@@ -26,15 +26,15 @@ const Product = () => {
     const [createDialog, setCreateDialog] = useState<boolean>(false)
     const [selectedMenu, setSelectedMenu] = useState<{menu: IMenu, action: "edit" | "delete"} | null>(null)
     const [loading, setLoading] = useState<boolean>(false)
-    const urlParams = useSearchParams()
+    const currentSearchParams = useSearchParams()
 
     const router = useRouter()
     const pathname = usePathname()
 
-    const fetchMenu = async () => {
+    const fetchMenu = async (params: string) => {
         setLoading(true)
         try {
-            const response = await fetch(`/api/v1/products?${params.toString()}`, {
+            const response = await fetch(`/api/v1/products?${params}`, {
                 method: "GET"
             })
 
@@ -77,22 +77,24 @@ const Product = () => {
 
     
     const handleDebounceSearch = useDebouncedCallback((value: string) => {
-        const queryParams = new URLSearchParams(urlParams.toString())
+        const queryParams = new URLSearchParams(currentSearchParams.toString())
 
         switch(value) {
             case "":
                 queryParams.delete("keyword")
             break
             default:
+                queryParams.set("page", "1")
                 queryParams.set("keyword", value)
         }
 
-        fetchMenu()
-        router.replace(`${pathname}?${queryParams.toString()}`)
+        fetchMenu(queryParams.toString())
+        router.push(`${pathname}?${queryParams.toString()}`)
     }, 1000)
 
     useEffect(() => {
-        fetchMenu()
+        const queryParams = new URLSearchParams(URLSearchParams.toString())
+        fetchMenu(queryParams.toString())
     }, []);
 
     // if(!loading) return <p>Loading...</p>
@@ -100,6 +102,8 @@ const Product = () => {
     const handleAddMenu = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault()
         const formData = new FormData(e.currentTarget)
+
+        const queryParams = new URLSearchParams(currentSearchParams.toString())
 
         try {
             const response = await fetch("/api/v1/products", {
@@ -111,7 +115,7 @@ const Product = () => {
 
             if(!result.data) throw new Error(result.error)
 
-            await fetchMenu()
+            await fetchMenu(queryParams.toString())
             toast("Menu added successfully")
 
             setCreateDialog(false)
@@ -126,6 +130,8 @@ const Product = () => {
             toast("product not found")
             return;
         }
+
+        const queryParams = new URLSearchParams(currentSearchParams.toString())
 
         const formData = new FormData(e.currentTarget)
         const data = Object.fromEntries(formData)
@@ -143,7 +149,7 @@ const Product = () => {
             toast("Berhasil mengubah data produk")
 
             setSelectedMenu(null)
-            fetchMenu()
+            await fetchMenu(queryParams.toString())
         } catch (err) {
             const errorMessage = handleApiError(err)
 
@@ -173,17 +179,18 @@ const Product = () => {
     }
 
     const handleFilterLimit = (value: string) => {
-        const queryParams = new URLSearchParams(urlParams.toString())
+        const queryParams = new URLSearchParams(currentSearchParams.toString())
 
         switch(value) {
             case "":
                 queryParams.set("limit", "5")
             break
             default:
+                queryParams.set("page", "1")
                 queryParams.set("limit", value)
         }
-
-        fetchMenu()
+        
+        fetchMenu(queryParams.toString())
         router.replace(`${pathname}?${queryParams.toString()}`)
     }
 
@@ -194,7 +201,7 @@ const Product = () => {
     }
 
     const handlePagination = (page?: string | null) => {
-        const queryParams = new URLSearchParams(urlParams.toString())
+        const queryParams = new URLSearchParams(currentSearchParams.toString())
         switch(page) {
             case null:
                 return;
@@ -202,7 +209,7 @@ const Product = () => {
                 return;
             default:
                 queryParams.set("page", page)
-                fetchMenu()
+                fetchMenu(queryParams.toString())
         }
 
         router.replace(`${pathname}?${queryParams.toString()}`)
@@ -213,7 +220,7 @@ const Product = () => {
             <div className="mb-4 w-full flex items-center justify-between">
                 <div className="text-3xl font-bold">Menu</div>
                 <div className="flex items-center gap-4">
-                    <Input onChange={handleFilterSearch} placeholder="Search..." defaultValue={urlParams.get("keyword")?.toString() ?? ""} />
+                    <Input onChange={handleFilterSearch} placeholder="Search..." defaultValue={currentSearchParams.get("keyword")?.toString() ?? ""} />
                     <Dialog open={createDialog} onOpenChange={setCreateDialog}>
                         <DialogTrigger asChild>
                             <Button className="font-bold">Add Menu</Button>
@@ -321,7 +328,7 @@ const Product = () => {
                 </Table>
 
                 <div>
-                    <Select onValueChange={(value) => handleFilterLimit(value)} defaultValue={urlParams.get("limit") ? urlParams.get("limit")?.toString() : "5"}>
+                    <Select onValueChange={(value) => handleFilterLimit(value)} defaultValue={currentSearchParams.get("limit") ? currentSearchParams.get("limit")?.toString() : "5"}>
                         <SelectTrigger>
                             <SelectValue placeholder="Limit" />
                         </SelectTrigger>
